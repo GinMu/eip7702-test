@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
+
 const { encodeFunctionData, createWalletClient, http, parseEther, createPublicClient } = require("viem");
+const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
 const { privateKeyToAccount } = require("viem/accounts");
 const { Wallet } = require("@ethereumjs/wallet");
@@ -51,7 +52,12 @@ const program = new Command();
 program
   .name("test-eip-7702")
   .description("test for EIP-7702")
-  .version("1.0.0", "-v, --version", "Output the current version");
+  .version("1.0.0", "-v, --version", "Output the current version")
+  .option(
+    "-k, --keystore [keystore]",
+    "keystore file, default is the first file that starts with 'UTC--' in the keystore directory",
+    getFirstKeystoreFile()
+  );
 
 program
   .command("import-private-key")
@@ -70,23 +76,24 @@ program
 program
   .command("derive-private-key")
   .description("export private key from keystore")
-  .argument("[file]", "keystore file, default is the first file that starts with 'UTC--' in the keystore directory")
-  .action(async (file) => {
-    const keystore = file || getFirstKeystoreFile();
+  .action(async () => {
+    const { keystore } = program.opts();
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
+    const eoa = privateKeyToAccount(privateKey);
+    console.log(`EOA address: ${eoa.address}`);
     console.log(`Private key: ${privateKey}`);
   });
 
 program
   .command("revoke")
   .description("revoke metamask eip7702 contract authorization")
-  .argument("[file]", "keystore file, default is the first file that starts with 'UTC--' in the keystore directory")
-  .action(async (file) => {
-    const keystore = file || getFirstKeystoreFile();
+  .action(async () => {
+    const { keystore } = program.opts();
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
+    console.log(`EOA address: ${eoa.address}`);
     const walletClient = createClient(eoa);
     const nonce = await publicClient.getTransactionCount({
       address: eoa.address,
@@ -109,12 +116,12 @@ program
 program
   .command("authorize")
   .description("authorize to metamask eip7702 contract")
-  .argument("[file]", "keystore file, default is the first file that starts with 'UTC--' in the keystore directory")
-  .action(async (file) => {
-    const keystore = file || getFirstKeystoreFile();
+  .action(async () => {
+    const { keystore } = program.opts();
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
+    console.log(`EOA address: ${eoa.address}`);
     const walletClient = createClient(eoa);
     const nonce = await publicClient.getTransactionCount({
       address: eoa.address,
@@ -139,12 +146,12 @@ program
   .description("batch transfer eth to multiple addresses")
   .argument("<amount>", "amount to transfer")
   .argument("<destinations...>", "destination addresses")
-  .option("-f, --file [keystore]")
-  .action(async (amount, destinations, option) => {
-    const keystore = option.file || getFirstKeystoreFile();
+  .action(async (amount, destinations) => {
+    const { keystore } = program.opts();
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
+    console.log(`EOA address: ${eoa.address}`);
     const walletClient = createClient(eoa);
     const calldata = encodeBatchExecution(
       destinations.map((destination) => {
