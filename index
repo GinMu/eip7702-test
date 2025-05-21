@@ -28,9 +28,20 @@ const getFirstKeystoreFile = () => {
   const files = fs.readdirSync(keystoreDir);
   const keystoreFiles = files.filter((file) => file.startsWith("UTC--"));
   if (keystoreFiles.length === 0) {
-    throw new Error("No keystore files found");
+    return null;
   }
   return path.join(keystoreDir, keystoreFiles[0]);
+};
+
+const validateKeystore = (keystore) => {
+  if (!keystore) {
+    throw new Error("No keystore file provided");
+  }
+  const relativePath = path.relative(__dirname, keystore);
+  const absolutePath = path.resolve(__dirname, relativePath);
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`Keystore file ${absolutePath} does not exist`);
+  }
 };
 
 const createClient = (account) => {
@@ -78,6 +89,7 @@ program
   .description("export private key from keystore")
   .action(async () => {
     const { keystore } = program.opts();
+    validateKeystore(keystore);
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
@@ -90,6 +102,7 @@ program
   .description("revoke metamask eip7702 contract authorization")
   .action(async () => {
     const { keystore } = program.opts();
+    validateKeystore(keystore);
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
@@ -118,6 +131,7 @@ program
   .description("authorize to metamask eip7702 contract")
   .action(async () => {
     const { keystore } = program.opts();
+    validateKeystore(keystore);
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
@@ -148,6 +162,7 @@ program
   .argument("<destinations...>", "destination addresses")
   .action(async (amount, destinations) => {
     const { keystore } = program.opts();
+    validateKeystore(keystore);
     const password = readlineSync.question("Password:", { hideEchoBack: true });
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
