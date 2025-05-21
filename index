@@ -116,7 +116,7 @@ program
     const authorization = await walletClient.signAuthorization({
       account: eoa,
       contractAddress: "0x0000000000000000000000000000000000000000",
-      nonce: nonce + 1
+      executor: "self"
     });
     console.log(`Authorization: `, authorization);
     const hash = await walletClient.sendTransaction({
@@ -145,7 +145,7 @@ program
     const authorization = await walletClient.signAuthorization({
       account: eoa,
       contractAddress: METAMASK_EIP7702_CONTRACT,
-      nonce: nonce + 1
+      executor: "self"
     });
     console.log(`Authorization: `, authorization);
     const hash = await walletClient.sendTransaction({
