@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
-const { encodeFunctionData, createWalletClient, http, parseEther } = require("viem");
+const { encodeFunctionData, createWalletClient, http, parseEther, createPublicClient } = require("viem");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
 const { privateKeyToAccount } = require("viem/accounts");
 const { Wallet } = require("@ethereumjs/wallet");
@@ -41,6 +41,11 @@ const createClient = (account) => {
   return walletClient;
 };
 
+const publicClient = createPublicClient({
+  chain: sepolia,
+  transport: http()
+});
+
 const program = new Command();
 
 program
@@ -49,7 +54,7 @@ program
   .version("1.0.0", "-v, --version", "Output the current version");
 
 program
-  .command("import-private")
+  .command("import-private-key")
   .description("import private key to keystore")
   .action(async () => {
     const secret = readlineSync.question("Private key:", {
@@ -63,7 +68,7 @@ program
   });
 
 program
-  .command("derive-private")
+  .command("derive-private-key")
   .description("export private key from keystore")
   .argument("[file]", "keystore file, default is the first file that starts with 'UTC--' in the keystore directory")
   .action(async (file) => {
@@ -74,7 +79,7 @@ program
   });
 
 program
-  .command("revoke-authorization")
+  .command("revoke")
   .description("revoke metamask eip7702 contract authorization")
   .argument("[file]", "keystore file, default is the first file that starts with 'UTC--' in the keystore directory")
   .action(async (file) => {
@@ -83,10 +88,15 @@ program
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
     const walletClient = createClient(eoa);
-
+    const nonce = await publicClient.getTransactionCount({
+      address: eoa.address,
+      blockTag: "latest"
+    });
+    console.log(`Nonce: ${nonce}`);
     const authorization = await walletClient.signAuthorization({
       account: eoa,
-      contractAddress: "0x0000000000000000000000000000000000000000"
+      contractAddress: "0x0000000000000000000000000000000000000000",
+      nonce: nonce + 1
     });
     console.log(`Authorization: `, authorization);
     const hash = await walletClient.sendTransaction({
@@ -106,10 +116,15 @@ program
     const privateKey = await derivePrivateKey(keystore, password);
     const eoa = privateKeyToAccount(privateKey);
     const walletClient = createClient(eoa);
-
+    const nonce = await publicClient.getTransactionCount({
+      address: eoa.address,
+      blockTag: "latest"
+    });
+    console.log(`Nonce: ${nonce}`);
     const authorization = await walletClient.signAuthorization({
       account: eoa,
-      contractAddress: METAMASK_EIP7702_CONTRACT
+      contractAddress: METAMASK_EIP7702_CONTRACT,
+      nonce: nonce + 1
     });
     console.log(`Authorization: `, authorization);
     const hash = await walletClient.sendTransaction({
