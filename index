@@ -189,4 +189,15 @@ program
     console.log(`Transaction hash: ${hash}`);
   });
 
+program
+  .command("get-code")
+  .description("get code of the account")
+  .argument("<account>", "account address")
+  .action(async (address) => {
+    const byteCode = await publicClient.getCode({
+      address
+    });
+    console.log(`Byte code: ${byteCode}`);
+  });
+
 program.parse(process.argv);
