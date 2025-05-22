@@ -19,4 +19,7 @@ test EIP7702 feature on sepolia network and the eip7702 contract is [Metamask EI
 
 # batch transfer
 ./index batch-transfer $amount $to $to
+
+# get code
+./index get-code $address
 ```
