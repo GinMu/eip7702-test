@@ -3,16 +3,22 @@
 const { encodeFunctionData, createWalletClient, http, parseEther, createPublicClient } = require("viem");
 const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
+const { JsonRpcProvider } = require("@ethersproject/providers");
+const { Contract } = require("@ethersproject/contracts");
 const { privateKeyToAccount } = require("viem/accounts");
+const { fromWei } = require("@metamask/ethjs-unit");
 const { Wallet } = require("@ethereumjs/wallet");
 const readlineSync = require("readline-sync");
 const { sepolia } = require("viem/chains");
 const { Command } = require("commander");
 const path = require("path");
 const fs = require("fs");
+
+const multicallAbi = require("./multicall.json");
 const abi = require("./abi.json");
 
 const METAMASK_EIP7702_CONTRACT = "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B";
+const MULTICALL_CONTRACT = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const keystoreDir = path.join(__dirname, "keystore");
 
 const derivePrivateKey = async (file, password) => {
@@ -198,6 +204,47 @@ program
       address
     });
     console.log(`Byte code: ${byteCode}`);
+  });
+
+program
+  .command("fetch-balances")
+  .description("fetch balances of the accounts using multicall")
+  .argument("<rpcNode>", "rpc node")
+  .argument("<account...>", "account address")
+  .action(async (rpcNode, accounts) => {
+    const multicallContract = new Contract(MULTICALL_CONTRACT, multicallAbi, new JsonRpcProvider(rpcNode));
+
+    const calls = accounts.map((account) => {
+      return {
+        contract: multicallContract,
+        functionSignature: "getEthBalance(address)",
+        arguments: [account]
+      };
+    });
+
+    const calldata = calls.map((call) => ({
+      target: call.contract.address,
+      callData: call.contract.interface.encodeFunctionData(
+        call.contract.interface.functions[call.functionSignature],
+        call.arguments
+      )
+    }));
+
+    const results = await multicallContract.callStatic.tryAggregate(false, calldata);
+
+    const balances = results.map((r, i) => ({
+      success: r.success,
+      value:
+        r.success && r.returnData !== "0x"
+          ? calls[i].contract.interface.decodeFunctionResult(calls[i].functionSignature, r.returnData)[0]
+          : undefined
+    }));
+    const len = accounts.length;
+    for (let i = 0; i < len; i++) {
+      const { value } = balances[i];
+      const account = accounts[i];
+      console.log(`${account} balance: `, value ? fromWei(value.toString(), "ether") : undefined);
+    }
   });
 
 program.parse(process.argv);
