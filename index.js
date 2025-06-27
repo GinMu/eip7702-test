@@ -4,6 +4,7 @@ const { encodeFunctionData, createWalletClient, http, parseEther, createPublicCl
 const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
 const { JsonRpcProvider } = require("@ethersproject/providers");
+const { abiERC721 } = require("@metamask/metamask-eth-abis");
 const { Contract } = require("@ethersproject/contracts");
 const { privateKeyToAccount } = require("viem/accounts");
 const { fromWei } = require("@metamask/ethjs-unit");
@@ -20,6 +21,12 @@ const abi = require("./abi.json");
 const METAMASK_EIP7702_CONTRACT = "0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B";
 const MULTICALL_CONTRACT = "0xcA11bde05977b3631167028862bE2a173976CA11";
 const keystoreDir = path.join(__dirname, "keystore");
+
+const NETWORK = {
+  ethereum: "https://rpc.therpc.io/ethereum",
+  bsc: "https://bsc-dataseed.binance.org",
+  polygon: "https://polygon-rpc.com"
+};
 
 const derivePrivateKey = async (file, password) => {
   const relativePath = path.relative(__dirname, file);
@@ -209,9 +216,14 @@ program
 program
   .command("fetch-balances")
   .description("fetch balances of the accounts using multicall")
-  .argument("<rpcNode>", "rpc node")
+  .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
   .argument("<account...>", "account address")
-  .action(async (rpcNode, accounts) => {
+  .action(async (network, accounts) => {
+    const rpcNode = NETWORK[network];
+    if (!rpcNode) {
+      console.error(`Unsupported network: ${network}`);
+      return;
+    }
     const multicallContract = new Contract(MULTICALL_CONTRACT, multicallAbi, new JsonRpcProvider(rpcNode));
 
     const calls = accounts.map((account) => {
@@ -244,6 +256,35 @@ program
       const { value } = balances[i];
       const account = accounts[i];
       console.log(`${account} balance: `, value ? fromWei(value.toString(), "ether") : undefined);
+    }
+  });
+
+program
+  .command("nft-info")
+  .description("fetch NFT token URI")
+  .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
+  .argument("<contractAddress>", "NFT contract address")
+  .argument("[tokenId]", "NFT token ID")
+  .action(async (network, contractAddress, tokenId) => {
+    const rpcNode = NETWORK[network];
+    if (!rpcNode) {
+      console.error(`Unsupported network: ${network}`);
+      return;
+    }
+
+    const contract = new Contract(contractAddress, abiERC721, new JsonRpcProvider(rpcNode));
+    const name = await contract.callStatic.name();
+    const totalSupply = await contract.callStatic.totalSupply();
+    const symbol = await contract.callStatic.symbol();
+    console.log(`Contract Name: ${name}`);
+    console.log(`Contract Symbol: ${symbol}`);
+    console.log(`Total Supply: ${totalSupply}`);
+
+    if (tokenId) {
+      const tokenUri = await contract.callStatic.tokenURI(tokenId);
+      console.log(`Token URI of ${tokenId}: ${tokenUri}`);
+      const tokenOwner = await contract.callStatic.ownerOf(tokenId);
+      console.log(`Token Owner of ${tokenId}: ${tokenOwner}`);
     }
   });
 
