@@ -4,7 +4,7 @@ const { encodeFunctionData, createWalletClient, http, parseEther, createPublicCl
 const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
 const { JsonRpcProvider } = require("@ethersproject/providers");
-const { abiERC721 } = require("@metamask/metamask-eth-abis");
+const { abiERC721, abiERC20 } = require("@metamask/metamask-eth-abis");
 const { Contract } = require("@ethersproject/contracts");
 const { privateKeyToAccount } = require("viem/accounts");
 const { fromWei } = require("@metamask/ethjs-unit");
@@ -286,6 +286,29 @@ program
       const tokenOwner = await contract.callStatic.ownerOf(tokenId);
       console.log(`Token Owner of ${tokenId}: ${tokenOwner}`);
     }
+  });
+
+program
+  .command("erc20")
+  .description("fetch ERC20 token info")
+  .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
+  .argument("<contractAddress>", "ERC20 contract address")
+  .action(async (network, contractAddress) => {
+    const rpcNode = NETWORK[network];
+    if (!rpcNode) {
+      console.error(`Unsupported network: ${network}`);
+      return;
+    }
+
+    const contract = new Contract(contractAddress, abiERC20, new JsonRpcProvider(rpcNode));
+    const name = await contract.callStatic.name();
+    const symbol = await contract.callStatic.symbol();
+    const decimals = await contract.callStatic.decimals();
+    const totalSupply = await contract.callStatic.totalSupply();
+    console.log(`Contract Name: ${name}`);
+    console.log(`Contract Symbol: ${symbol}`);
+    console.log(`Contract Decimals: ${decimals}`);
+    console.log(`Total Supply: ${totalSupply}`);
   });
 
 program.parse(process.argv);
