@@ -355,6 +355,21 @@ program
       .map((id) => id.toString());
 
     console.log(`Token IDs owned by ${ownerAddress}: `, tokenIds);
+
+    const tokenUrisCalldata = tokenIds.map((tokenId) => ({
+      target: contract.address,
+      callData: contract.interface.encodeFunctionData("tokenURI", [tokenId])
+    }));
+
+    const uriResults = await multicallContract.callStatic.tryAggregate(false, tokenUrisCalldata);
+
+    const tokenUris = uriResults.map((r, i) =>
+      r.success ? contract.interface.decodeFunctionResult("tokenURI", r.returnData)[0] : undefined
+    );
+
+    tokenIds.forEach((tokenId, index) => {
+      console.log(`Token ID: ${tokenId}, Token URI: ${tokenUris[index]}`);
+    });
   });
 
 program.parse(process.argv);
