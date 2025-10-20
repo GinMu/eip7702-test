@@ -136,3 +136,4 @@ dist
 .pnp.*
 
 keystore/UTC--*
+.DS_Store

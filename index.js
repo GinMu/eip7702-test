@@ -260,8 +260,8 @@ program
   });
 
 program
-  .command("nft-info")
-  .description("fetch NFT token URI")
+  .command("erc721")
+  .description("fetch ERC721 token info")
   .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
   .argument("<contractAddress>", "NFT contract address")
   .argument("[tokenId]", "NFT token ID")
@@ -309,6 +309,52 @@ program
     console.log(`Contract Symbol: ${symbol}`);
     console.log(`Contract Decimals: ${decimals}`);
     console.log(`Total Supply: ${totalSupply}`);
+  });
+
+program
+  .command("fetch-erc721-tokens")
+  .description("fetch all ERC721 tokens for a given owner via multicall")
+  .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
+  .argument("<ownerAddress>", "Owner address")
+  .argument("<ERC721_CONTRACT>", "ERC721 contract address")
+  .action(async (network, ownerAddress, ERC721_CONTRACT) => {
+    const rpcNode = NETWORK[network];
+    if (!rpcNode) {
+      console.error(`Unsupported network: ${network}`);
+      return;
+    }
+
+    const contract = new Contract(ERC721_CONTRACT, abiERC721, new JsonRpcProvider(rpcNode));
+    const balance = await contract.callStatic.balanceOf(ownerAddress);
+    console.log(`Owner ${ownerAddress} has ${balance} ERC721 tokens`);
+
+    const calls = Array.from({ length: balance }, (_, i) => i).map((_, i) => ({
+      contract,
+      functionSignature: "tokenOfOwnerByIndex(address,uint256)",
+      arguments: [ownerAddress, i]
+    }));
+
+    const calldata = calls.map((call) => ({
+      target: call.contract.address,
+      callData: call.contract.interface.encodeFunctionData(
+        call.contract.interface.functions[call.functionSignature],
+        call.arguments
+      )
+    }));
+
+    const multicallContract = new Contract(MULTICALL_CONTRACT, multicallAbi, new JsonRpcProvider(rpcNode));
+    const results = await multicallContract.callStatic.tryAggregate(false, calldata);
+
+    const tokenIds = results
+      .map((r, i) =>
+        r.success
+          ? calls[i].contract.interface.decodeFunctionResult(calls[i].functionSignature, r.returnData)[0]
+          : undefined
+      )
+      .filter(Boolean)
+      .map((id) => id.toString());
+
+    console.log(`Token IDs owned by ${ownerAddress}: `, tokenIds);
   });
 
 program.parse(process.argv);
