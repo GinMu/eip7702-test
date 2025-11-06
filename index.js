@@ -4,7 +4,7 @@ const { encodeFunctionData, createWalletClient, http, parseEther, createPublicCl
 const { encodeBatchExecution, BATCH_DEFAULT_MODE } = require("@metamask/delegation-utils");
 const { hexToBytes, addHexPrefix } = require("@ethereumjs/util");
 const { JsonRpcProvider } = require("@ethersproject/providers");
-const { abiERC721, abiERC20 } = require("@metamask/metamask-eth-abis");
+const { abiERC721, abiERC20, abiERC1155 } = require("@metamask/metamask-eth-abis");
 const { Contract } = require("@ethersproject/contracts");
 const { privateKeyToAccount } = require("viem/accounts");
 const { fromWei } = require("@metamask/ethjs-unit");
@@ -14,6 +14,7 @@ const { sepolia } = require("viem/chains");
 const { Command } = require("commander");
 const path = require("path");
 const fs = require("fs");
+const fetch = require("node-fetch").default;
 
 const multicallAbi = require("./multicall.json");
 const abi = require("./abi.json");
@@ -309,6 +310,44 @@ program
     console.log(`Contract Symbol: ${symbol}`);
     console.log(`Contract Decimals: ${decimals}`);
     console.log(`Total Supply: ${totalSupply}`);
+  });
+
+program
+  .command("erc1155")
+  .description("fetch ERC1155 token info")
+  .argument("<network>", "Blockchain network (e.g., ethereum, bsc, polygon)")
+  .argument("<contractAddress>", "ERC1155 contract address")
+  .argument("<tokenId>", "ERC1155 token ID")
+  .argument("[address]", "Owner address")
+  .action(async (network, contractAddress, tokenId, address) => {
+    const rpcNode = NETWORK[network];
+    if (!rpcNode) {
+      console.error(`Unsupported network: ${network}`);
+      return;
+    }
+
+    const contract = new Contract(contractAddress, abiERC1155, new JsonRpcProvider(rpcNode));
+    const tokenUri = await contract.callStatic.uri(tokenId);
+    console.log(`Token URI of ${tokenId}: ${tokenUri}`);
+    if (address) {
+      const balance = await contract.callStatic.balanceOf(address, tokenId);
+      console.log(`Balance of address ${address} for token ID ${tokenId}: ${balance}`);
+    }
+
+    if (tokenUri) {
+      try {
+        const url = tokenUri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${tokenUri.slice(7)}` : tokenUri;
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error(`Failed to fetch metadata from ${tokenUri}: ${response.statusText}`);
+        } else {
+          const metadata = await response.json();
+          console.log(`Metadata for token ID ${tokenId}: `, metadata);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch metadata from ${tokenUri}: `, error);
+      }
+    }
   });
 
 program
