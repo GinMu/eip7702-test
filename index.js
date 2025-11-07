@@ -312,6 +312,21 @@ program
     console.log(`Total Supply: ${totalSupply}`);
   });
 
+const getAssetName = (address, provider) => {
+  const abi = [
+    {
+      inputs: [],
+      name: "name",
+      outputs: [{ name: "_name", type: "string" }],
+      stateMutability: "view",
+      type: "function",
+      payable: false
+    }
+  ];
+  const contract = new Contract(address, abi, provider);
+  return contract.callStatic.name();
+};
+
 program
   .command("erc1155")
   .description("fetch ERC1155 token info")
@@ -326,9 +341,11 @@ program
       return;
     }
 
-    const contract = new Contract(contractAddress, abiERC1155, new JsonRpcProvider(rpcNode));
+    const provider = new JsonRpcProvider(rpcNode);
+    const contract = new Contract(contractAddress, abiERC1155, provider);
     const tokenUri = await contract.callStatic.uri(tokenId);
     console.log(`Token URI of ${tokenId}: ${tokenUri}`);
+
     if (address) {
       const balance = await contract.callStatic.balanceOf(address, tokenId);
       console.log(`Balance of address ${address} for token ID ${tokenId}: ${balance}`);
@@ -348,6 +365,9 @@ program
         console.error(`Failed to fetch metadata from ${tokenUri}: `, error);
       }
     }
+
+    const name = await getAssetName(contractAddress, provider);
+    console.log(`Contract Name: ${name}`);
   });
 
 program
