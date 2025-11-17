@@ -15,6 +15,7 @@ const { Command } = require("commander");
 const path = require("path");
 const fs = require("fs");
 const fetch = require("node-fetch").default;
+const { quoteExactInputSingle, quoteExactOutputSingle } = require("./uniswap-v3");
 
 const multicallAbi = require("./multicall.json");
 const abi = require("./abi.json");
@@ -429,6 +430,20 @@ program
     tokenIds.forEach((tokenId, index) => {
       console.log(`Token ID: ${tokenId}, Token URI: ${tokenUris[index]}`);
     });
+  });
+
+program
+  .command("uniswap-v3-quote-exact-input-single")
+  .description("get Uniswap V3 quote for exact input single")
+  .action(async () => {
+    await quoteExactInputSingle();
+  });
+
+program
+  .command("uniswap-v3-quote-exact-output-single")
+  .description("get Uniswap V3 quote for exact output single")
+  .action(async () => {
+    await quoteExactOutputSingle();
   });
 
 program.parse(process.argv);
